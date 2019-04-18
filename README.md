@@ -1,5 +1,8 @@
 # Reducing-Gender-Bias-in-Language-Models
-## This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University.
+
+## Introduction
+
+This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University. Our prupose is to reduce gender bias in language models.
 
 ## Authors
 

@@ -4,6 +4,10 @@
 
 This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University. Our prupose is to reduce gender bias in language models.
 
+## Dataset
+
+The dataset we use is Daily Mails. https://cs.nyu.edu/~kcho/DMQA/
+
 ## Authors
 
 * **Yusu Qian** 

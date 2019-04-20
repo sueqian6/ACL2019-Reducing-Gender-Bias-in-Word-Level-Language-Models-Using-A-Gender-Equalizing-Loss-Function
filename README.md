@@ -11,10 +11,12 @@ We use 5% of the whole dataset. The subsample can be found in Data/Sample Storie
 
 ## Authors
 
-* **Yusu Qian** 
-* **Urwa Muaz** 
+* **Yusu Qian* ** 
+* **Urwa Muaz* ** 
 * **Ben Zhang** 
 * **Jae Won Hyun** 
+
+* denotes equal contribution
 
 ## Acknowledgments
 

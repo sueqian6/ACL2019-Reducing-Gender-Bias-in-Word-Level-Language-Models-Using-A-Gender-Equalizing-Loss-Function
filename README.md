@@ -7,7 +7,7 @@ This is a project for DS-GA 1012 Natural Language Understanding and Computationa
 ## Dataset
 
 The dataset we use is Daily Mails. https://cs.nyu.edu/~kcho/DMQA/
-We use 1% of the whole dataset. The subsample can be found in Data/Sample Stories.
+We use 5% of the whole dataset. The subsample can be found in Data/Sample Stories.
 
 ## Authors
 

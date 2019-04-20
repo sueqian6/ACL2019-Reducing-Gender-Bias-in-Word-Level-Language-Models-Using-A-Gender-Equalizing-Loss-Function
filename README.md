@@ -16,7 +16,7 @@ We use 5% of the whole dataset. The subsample can be found in Data/Sample Storie
 * **Ben Zhang** 
 * **Jae Won Hyun** 
 
-*  * denotes equal contribution
+* '*' denotes equal contribution
 
 ## Acknowledgments
 

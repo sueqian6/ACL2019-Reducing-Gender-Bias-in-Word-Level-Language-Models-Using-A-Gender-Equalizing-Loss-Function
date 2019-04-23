@@ -369,7 +369,15 @@ try:
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 4.0
+            # Anneal the learning rate if no improvement has been seen in the validation dataset.
+            if lr<1e-1 and lr>=1e-2:
+                lr /= (args.anneal/2)
+            elif lr<1e-2 and lr >=1e-3:
+                lr /= (args.anneal/3)
+            elif lr<1e-3:
+                lr *= 0.95
+            else:
+                lr /= args.anneal
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')

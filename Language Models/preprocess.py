@@ -10,6 +10,8 @@ import gzip
 import spacy
 from unidecode import unidecode
 from io import BytesIO
+from keras.preprocessing.text import Tokenizer
+import gc 
 
 en = spacy.load('en')
 
@@ -18,7 +20,7 @@ def is_valid_token(w):
     """
     Returns True if a token is valid
     """
-    return bool(re.search('[a-zA-Z0-9,.:!<>$\']+', w))
+    return bool(re.search('[a-zA-Z0-9,.!?<>\']+', w))
     #    !"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~)
 
 
@@ -27,10 +29,30 @@ def transform_token(w):
     Transforms a token by making lowercase, and for numeric tokens replaces
     digits with placeholders
     """
-    #replace special characters
-    return re.sub(r'[^A-Za-z,.:!<>$\-\']', '', 
+    #替换 非 A-Za-z <>$. - ‘，包括space
+    return re.sub(r'[^A-Za-z,.!?\'<>]', '', 
             re.sub(r'\d+', '<NUM>',
                 unidecode(w).lower()))
+
+
+
+# def is_valid_token(w):
+#     """
+#     Returns True if a token is valid
+#     """
+#     return bool(re.search('[a-zA-Z0-9,.!?]+', w))
+
+
+# def transform_token(w):
+#     """
+#     Transforms a token by making lowercase, and for numeric tokens replaces
+#     digits with placeholders
+#     """
+#     return re.sub(r'[.\-\']+$', '',
+#       re.sub(r'[.\-\']+', '',
+#         re.sub(r'[^A-Za-z<>$.\-\']', '',
+#             re.sub(r'\d+', '<NUM>',
+#                 unidecode(w).lower()))))
 
 
 def preprocess_file(filepath):
@@ -108,7 +130,17 @@ def encode_sentences(sentences, word_to_idx):
     """
     Encode tokens in sentences by vocab indices
     """
-    return [[word_to_idx[w] for w in sent] for sent in sentences]
+    tokenized = []
+    for sent in sentences:
+        sentence2idx = []
+        for w in sent:
+            try:
+                sentence2idx.append(word_to_idx[w])
+            except:
+                sentence2idx.append(word_to_idx['_unk_'])
+        tokenized.append(sentence2idx)
+
+    return tokenized
 
 
 def read_preprocessed_file(filepath, vocab):
@@ -176,7 +208,7 @@ def load_preprocesed_dataset(pp_dataset_dir, sent_delim='<eos>', vocab_path=None
         if idx != 0:
             res += ' '
         filepath = os.path.join(data_dir, fname)
-        res += read_preprocessed_file_as_str(filepath, vocab, sent_delim='')
+        res += read_preprocessed_file_as_str(filepath, vocab, sent_delim='<eos>')
 
     return res
 
@@ -218,14 +250,14 @@ def save_worker(args):
     write_preprocessed_file(sentences, output_path)
 
 
-def preprocess_dataset(dataset_dir, output_dir, target_ext='.txt', num_workers=1):
+def preprocess_dataset(dataset_dir, output_dir, vocabsize, target_ext='.txt', num_workers=1):
     """
     Preprocesses a dataset by splitting each file into sentences, tokenizing
     each sentence, encoding the files, and saving them.
     """
     dataset_dir = os.path.abspath(dataset_dir)
     output_dir = os.path.abspath(output_dir)
-    output_data_dir = os.path.join(output_dir, 'outputdata')
+    output_data_dir = os.path.join(output_dir, 'data')
     
 
     if not os.path.isdir(dataset_dir):
@@ -234,7 +266,6 @@ def preprocess_dataset(dataset_dir, output_dir, target_ext='.txt', num_workers=1
     if not os.path.isdir(output_data_dir):
         os.makedirs(output_data_dir)
 
-    vocab = set()
     worker_args = []
 
     print("Getting list of files...")
@@ -259,12 +290,13 @@ def preprocess_dataset(dataset_dir, output_dir, target_ext='.txt', num_workers=1
     print("Preprocessing files...")
     output_paths = []
     articles = []
+    wholetokens = []
     num_files = len(worker_args)
     # Preprocess each file and get the tokens in each file
     for idx, (out_path, sentences, tokens) in enumerate(pool.imap_unordered(preprocess_worker, worker_args)):
         output_paths.append(out_path)
         articles.append(sentences)
-        vocab.update(tokens)
+        wholetokens += sentences
 
         if ((idx+1) % 1000) == 0:
             print("Preprocessed {}/{} files".format(idx+1, num_files))
@@ -272,6 +304,21 @@ def preprocess_dataset(dataset_dir, output_dir, target_ext='.txt', num_workers=1
     pool.close()
     pool.join()
 
+    # create the tokenizer
+    voc_size = vocabsize #in keras,it builds a voc from 1-45000  original 47885
+    t = Tokenizer(num_words=voc_size,oov_token = '_unk_',filters='!"$,-./:;<>?\t\n') 
+    # fit the tokenizer on the documents
+    t.fit_on_texts(wholetokens)
+    # summarize what was learned
+    vocab = []
+    #in keras,t.word_index.items() is ordered dic, i.e {'work': 1, 'well': 2, 'done': 3, 'good': 4}
+    for key, value in t.word_index.items():
+        if value<voc_size:
+            vocab.append(key)
+        else:
+            break
+    vocab.insert(0, '_pad_')
+    print(len(vocab))
 
     # Sort vocab and make into a list
     print("Saving vocab...")
@@ -306,6 +353,7 @@ def parse_arguments():
     parser.add_argument('dataset_dir', help='Path to directory containing text files', type=str)
     parser.add_argument('output_dir', help='Path to output directory', type=str)
     parser.add_argument('target_ext', help='Extension of relevant text files', type=str)
+    parser.add_argument('vocabsize', help='Vocabulary size', type=int, default=50000)
     parser.add_argument('-n', '--num-workers', dest='num_workers', type=int, default=1, help='Number of workers')
     return vars(parser.parse_args())
 

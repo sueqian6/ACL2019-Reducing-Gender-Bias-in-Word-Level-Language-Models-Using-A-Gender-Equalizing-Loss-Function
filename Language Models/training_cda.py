@@ -60,8 +60,8 @@ parser.add_argument('--glove', action='store_true',
                     help='use glove')
 parser.add_argument('--glove_path', type=str, default='./gn_glove/1b-vectors300-0.8-0.8.txt',
                     help='using glove word embedding')
-parser.add_argument('--anneal', type=float, default=4,
-                    help='anneal rate of learning rate')
+parser.add_argument('--anneal', type=int, default=4,
+                    help='anneal rate of learing rate')
 args = parser.parse_args()
 
 print(args)
@@ -73,6 +73,7 @@ if torch.cuda.is_available():
     # else:
     #     torch.cuda.manual_seed(args.seed)
 device = torch.device("cuda" if args.cuda else "cpu")
+
 
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -112,6 +113,7 @@ def evaluate(data_source):
             output_flat = output.view(-1, ntokens)
             total_loss += len(data) * criterion(output, targets, lamda, f_onehot, m_onehot)
             hidden = repackage_hidden(hidden)
+#total_loss += len(data) * criterion(output_flat, targets).item()
     return total_loss / (len(data_source) - 1)
 
 
@@ -128,9 +130,9 @@ def train():
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
-        #loss = criterion(output.view(-1, ntokens), targets)
+        #loss = criterion(output.view(-1, corpusns), targets)
         loss = criterion(output, targets, lamda, f_onehot, m_onehot)
-        loss.backward()
+        loss.backward()      
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
@@ -169,9 +171,11 @@ maleFile = 'gender_words/male_word_file.txt'
 def getGenderIdx(femaleFile, maleFile, word2idx):
     female_word_list = load_doc(femaleFile).split('\n')
     male_word_list = load_doc(maleFile).split('\n')
+    print(len(female_word_list),len(male_word_list))
     pairs = [ (word2idx[f],word2idx[m]) for f,m in zip(female_word_list,male_word_list)  if f in word2idx and m in word2idx]
     femaleIdx = [ f for f,m in pairs]
     maleIdx = [ m for f,m in pairs]
+    print(len(femaleIdx),len(maleIdx))
     return femaleIdx,maleIdx
 
 class Custom_Loss(torch.nn.Module):
@@ -183,16 +187,22 @@ class Custom_Loss(torch.nn.Module):
     def forward(self, output, targets, lamda, femaleIdx, maleIdx):
         cross_ent_loss = self.criterion(output.view(-1, ntokens), targets)
         bias_loss = self.logRatioLossFast(output, femaleIdx, maleIdx) * lamda
+        #print((cross_ent_loss.item(),bias_loss.item()))
         loss = cross_ent_loss + bias_loss     
         return loss
     
     def customLoss_LogRatioGenderPairs(self,output, femaleIdx, maleIdx):
+        print(output.shape)
         flato = output.view(-1, ntokens)
+        print(flato.shape)
         logratio_sum = 0
         for i in range(flato.size()[0]):
             o = flato[i]
             logratio = [abs(torch.log( (torch.exp(o[f]) + 0.00001) / (torch.exp(o[m])+ 0.00001) )) for f,m in zip(femaleIdx, maleIdx)]
+            #print([ a.item() for a in logratio])
+            #print([(o[f].item(),o[m].item()) for f,m in zip(femaleIdx, maleIdx)])
             logratio_sum += sum(logratio)    
+        #print(logratio_sum.item())
         return logratio_sum / flato.size()[0]
     
     def logRatioLossFast(self, output, f_onehot, m_onehot):
@@ -211,10 +221,9 @@ class Custom_Loss(torch.nn.Module):
 #load vocab            
 vocab = preprocess.read_vocab(os.path.join(args.vocab))
 
-
-#create json file with indexed filename for following separation
-inds = [os.path.join(args.data, x) for x in os.listdir(args.data) if x.endswith('bin')]
-
+#calculate the data ids without swaped dataset
+inds = [os.path.join(args.data, x) for x in os.listdir(args.data) if x.endswith('bin') and len(x.split('.'))<3]
+inds_swap = [os.path.join(args.data, x) for x in os.listdir(args.data) if x.endswith('bin') and len(x.split('.'))==3]
 
 index_train = {}
 index_train['id'] = {}
@@ -222,12 +231,12 @@ iteration = 0
 for ind in inds:
     index_train['id'][iteration] = os.path.basename(ind)
     iteration += 1
-with open('ind_train.json', 'w') as fp:
+with open('ind_train_cda.json', 'w') as fp:
     json.dump(index_train, fp)
 
     
 #load the json file of indexed filename
-with open('ind_train.json', 'r') as fp:
+with open('ind_train_cda.json', 'r') as fp:
     data = json.load(fp)
 idx_train_ = pd.DataFrame(data)
 
@@ -250,15 +259,27 @@ trains, vals = next(splitter_tv.split(idx_bigtrain['id'].keys()))
 idx_train = idx_bigtrain.iloc[trains]
 idx_val = idx_bigtrain.iloc[vals]
 
+#add the swapped txts with same ids into training data
+idx_train_s = {}
+idx_train_s['id'] = {}
+
+ori_number = len(inds)
+ori_ids = [idx.split('.')[0] for idx in list(idx_train['id'])]
+
+for i, swap in enumerate(inds_swap):
+    if os.path.basename(swap).split('.')[0] in ori_ids:       
+        idx_train_s['id'][ori_number+i] = os.path.basename(swap)
+        
+idx_train_swaped = pd.DataFrame(idx_train_s)
+idx_train = pd.concat([idx_train, idx_train_swaped]).sample(frac=1,random_state=args.seed)
 
 #save idx_train, idx_val, idx_test for later use
-idx_train.to_json('idx_train.json')
-idx_val.to_json('idx_val.json')
-idx_test.to_json('idx_test.json')
+idx_train.to_json('idx_train_cda.json')
+idx_val.to_json('idx_val_cda.json')
+idx_test.to_json('idx_test_cda.json')
 
 
 # Load pretrained Embeddings, common token of vocab and gn_glove will be loaded, only appear in vocab will be initialized
-#142527 tokens, last one is '<unk>'
 # ntokens = sum(1 for line in open(gn_glove_dir)) + 1
 vocab.append('<eos>')
 ntokens = len(vocab)
@@ -315,9 +336,8 @@ m_onehot = np.zeros((len(femaleIdx), ntokens))
 m_onehot[np.arange(len(femaleIdx)), maleIdx] = 1
 m_onehot = torch.tensor(m_onehot, dtype = torch.float).to(device)
 
-
-
 ###########################################
+
 
 
 # Build the model
@@ -343,27 +363,13 @@ try:
                                            val_loss, math.exp(val_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
-
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            if lr<1e-1 and lr>=1e-2:
-                lr /= (args.anneal/2)
-            elif lr<1e-2 and lr >=1e-3:
-                lr /= (args.anneal/3)
-            # elif lr<1e-4 and lr >=1e-5:
-            #     lr /= (args.anneal/3.5)
-            elif lr<1e-3:
-                lr *= 0.99
-            else:
-                lr /= args.anneal
-
-            print('new learning rate is {}'.format(lr))
-            print('val_loss is {}'.format(val_loss))
-            print('best_val_loss is {}'.format(best_val_loss))
+            lr /= 4.0
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')

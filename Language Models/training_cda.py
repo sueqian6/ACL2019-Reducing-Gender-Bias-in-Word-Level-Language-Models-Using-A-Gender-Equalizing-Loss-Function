@@ -378,6 +378,10 @@ try:
                 lr *= 0.95
             else:
                 lr /= args.anneal
+
+            print('new learning rate is {}'.format(lr))
+            print('val_loss is {}'.format(val_loss))
+            print('best_val_loss is {}'.format(best_val_loss))
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
@@ -389,6 +393,6 @@ with open(args.save, 'rb') as f:
 # Run on test data.
 test_loss = evaluate(test_data)
 print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+print('| End of training | test loss {:5.3f} | test ppl {:8.3f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)

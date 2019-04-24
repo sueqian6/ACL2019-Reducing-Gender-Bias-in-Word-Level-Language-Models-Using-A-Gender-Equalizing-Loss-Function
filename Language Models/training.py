@@ -357,7 +357,7 @@ try:
             # elif lr<1e-4 and lr >=1e-5:
             #     lr /= (args.anneal/3.5)
             elif lr<1e-3:
-                lr *= 0.99
+                lr *= 0.95
             else:
                 lr /= args.anneal
 
@@ -375,6 +375,6 @@ with open(args.save, 'rb') as f:
 # Run on test data.
 test_loss = evaluate(test_data)
 print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+print('| End of training | test loss {:5.3f} | test ppl {:8.3f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)

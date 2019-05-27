@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University. Our purpose is to reduce gender bias in language models. 
+This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University. Our purpose is to reduce gender bias in language models. It has been accepted to appear at ACL2019 student research workshop.
 
 ## Dataset
 

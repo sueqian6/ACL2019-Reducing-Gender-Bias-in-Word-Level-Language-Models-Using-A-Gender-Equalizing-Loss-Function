@@ -4,6 +4,8 @@
 
 This is a project for DS-GA 1012 Natural Language Understanding and Computational Semantics at New York University. Our purpose is to reduce gender bias in language models. It has been accepted to appear at ACL2019 student research workshop.
 
+Paper link: https://arxiv.org/abs/1905.12801
+
 ## Dataset
 
 The dataset we use is Daily Mails. https://cs.nyu.edu/~kcho/DMQA/
